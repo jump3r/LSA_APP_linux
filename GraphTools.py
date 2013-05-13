@@ -738,7 +738,7 @@ class NoteBookTabs(wx.Frame):
     
     def __init__(self, title = "Project Window"):
         
-        wx.Frame.__init__(self, parent = None, title = title, size=(340, 300))
+        wx.Frame.__init__(self, parent = None, title = title, size=wx.DisplaySize())
         self.Center()
         self.panel = wx.Panel(self, -1)
         self.tabs = wx.aui.AuiNotebook(self.panel)
