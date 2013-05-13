@@ -145,7 +145,7 @@ class StartWin ( wx.Panel ):
         self.Parent.Destroy()
         self.Destroy() 
         frame = wx.Frame(None, -1, "New Project")
-	frame.SetSize((400,600))
+	frame.SetSize((400,500))
         NewProjectWin(frame)
         frame.Show(True)    
            
