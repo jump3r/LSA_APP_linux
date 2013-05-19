@@ -102,7 +102,7 @@ class CorpusUtils(object):
     
     
     def extractCSVtoTXTbyStudent(self, csvname, studCol, textCol, saveTo = "", 
-                                 stopIndex = -1, heading = False):
+                                 stopIndex = -1, heading = False, delimiter = ","):
         ''' Extract student conversations from .csv file format with name csvname where studCol 
             represents the column number with student names and textCol represents the column 
             number where text is stored for the student on the same row as student's name.
@@ -117,7 +117,7 @@ class CorpusUtils(object):
         
         file_csv = open(csvname, "r")
         csv.field_size_limit(10000000)
-        reader_csv = csv.reader(file_csv, dialect = 'excel')        
+        reader_csv = csv.reader(file_csv, delimiter = delimiter, dialect = 'excel')        
         
         # check if directory was given
         if saveTo != "": 

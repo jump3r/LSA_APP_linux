@@ -145,7 +145,7 @@ class StartWin ( wx.Panel ):
         self.Parent.Destroy()
         self.Destroy() 
         frame = wx.Frame(None, -1, "New Project")
-	frame.SetSize((400,500))
+	frame.SetSize((400,600))
         NewProjectWin(frame)
         frame.Show(True)    
            
@@ -860,7 +860,10 @@ class NewProjectWin ( wx.Panel ):
             Settings.stopIndex = int(numNotes)
             Settings.heading = heading
             
-                        
+            newWindow = LsaWin()
+	    self.Parent.Destroy()
+	    self.Destroy()
+ 	    '''            
             try:		
                 newWindow = LsaWin()
                 #newWindow.Show(True)
@@ -871,7 +874,7 @@ class NewProjectWin ( wx.Panel ):
                 # Delete created working directory
                 shutil.rmtree(Settings.name)
                 print "Given .csv file does not exist"
-            
+            '''
         else:
             print "Project with the given name already exists"
             
