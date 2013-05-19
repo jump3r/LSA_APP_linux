@@ -56,7 +56,7 @@ class GroupNetworkGraph(wx.Panel):
         
         # Slider
         self.slider_label = wx.StaticText(self, -1, "Similarity (%): ")
-        self.slider_width = wx.Slider(self, -1, value = 40, minValue = 1, maxValue = 100, size=(200,15),
+        self.slider_width = wx.Slider(self, -1, value = 40, minValue = 1, maxValue = 100, size=(400,15),
                                       style = wx.SL_AUTOTICKS|wx.SL_RIGHT)
         self.slider_width.SetTickFreq(3, 1)        
         #self.Bind(wx.EVT_COMMAND_SCROLL_THUMBTRACK, self.OnMoveSlider, self.slider_width)  	
