@@ -55,12 +55,14 @@ class GroupNetworkGraph(wx.Panel):
         self.Bind(wx.EVT_CHECKBOX, self.OnMoveSlider, self.cb_minorConn)
         
         # Slider
-        self.slider_label = wx.StaticText(self, -1, "Similarity lines (%): ")
-        self.slider_width = wx.Slider(self, -1, value = 40, minValue = 1, maxValue = 100, 
-                                      style = wx.SL_AUTOTICKS|wx.SL_LABELS)
+        self.slider_label = wx.StaticText(self, -1, "Similarity (%): ")
+        self.slider_width = wx.Slider(self, -1, value = 40, minValue = 1, maxValue = 100, size=(200,15),
+                                      style = wx.SL_AUTOTICKS|wx.SL_RIGHT)
         self.slider_width.SetTickFreq(3, 1)        
-        self.Bind(wx.EVT_COMMAND_SCROLL_THUMBTRACK, self.OnMoveSlider, self.slider_width)       
-        
+        #self.Bind(wx.EVT_COMMAND_SCROLL_THUMBTRACK, self.OnMoveSlider, self.slider_width)  	
+	self.Bind(wx.EVT_SCROLL_CHANGED, self.OnMoveSlider, self.slider_width)                    
+
+
         # Native matplotlib Navigation Panel
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         
@@ -262,7 +264,7 @@ class StudentInteractionDetailsPanel(wx.Panel):
         bSizer13 = wx.BoxSizer ( wx.VERTICAL )
         bSizer17 = wx.BoxSizer ( wx.VERTICAL )
         
-        self.m_textctrl1 = wx.TextCtrl(self, wx.ID_ANY, "Select a student", size = (-1, 300), 
+        self.m_textctrl1 = wx.TextCtrl(self, wx.ID_ANY, "Select a student", size = (-1, 100), 
                                        style = wx.TE_MULTILINE | wx.TE_PROCESS_ENTER)
         self.stud_dict = wx.ListBox( self, wx.ID_ANY, wx.DefaultPosition, 
                                           wx.DefaultSize, [], 0 )
@@ -311,7 +313,7 @@ class StudentInteractionDetailsPanel(wx.Panel):
             of edges, total score (number of edges * average score) and communities. '''
         
         self.m_grid3 = wx.grid.Grid( self, wx.ID_ANY, wx.DefaultPosition, 
-                                     wx.Size(-1, 300), wx.VSCROLL )       
+                                     wx.Size(-1,300), wx.VSCROLL )       
         # Grid
         self.m_grid3.CreateGrid( len(self.Settings.studNames), 4 )        
         self.m_grid3.EnableGridLines( True )
