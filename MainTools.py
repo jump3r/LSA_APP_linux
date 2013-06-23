@@ -3,7 +3,12 @@ try:
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 except(Exception):
     print "Error: did not import needed modules"
-    
+
+from UserInterfaceWindows import PrjSettings
+
+PRJDATA = "/ProjectData/"
+SETT_PICKL = "Settings.pickle"
+
 
 class CreatorLSA(object):    
     ''' Class object used to convert corpus (bag of words) into gensim lsi model and perform
@@ -194,14 +199,17 @@ class ExpCorpCreator(object):
         self.corpus = None
         
         # Create list of full paths of each .txt file inside given folder
-        for doc in glob.glob(folder + "/*.txt"):
+	#Settings = PrjSettings().UnPickleMe(folder+PRJDATA+SETT_PICKL)
+
+        for doc in glob.glob(folder + "/*.txt"):#+"/"+ Settings.getCurWeekStr()
             path = ""
             for name in doc.split("/"):
                 path += name+"/"
             
             self.file_paths.append(path[:-1])
         # ====
-         
+        print self.file_paths
+	print "==============="
         if dic == None:
             self.corpus = MyCorpus(self.file_paths)
         else:
@@ -267,9 +275,7 @@ class MyCorpus(gensim.corpora.TextCorpus):
         
         for symbol in to_remove:
             inputString=inputString.replace(symbol, " ")
-        print "here"
-        print os.getcwd()
-        print os.getpid()
+        
         for word in open("stopwords.txt"):
             word = " " + word.strip() + " "            
             inputString = inputString.replace(word, " ")

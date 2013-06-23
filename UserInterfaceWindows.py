@@ -5,6 +5,15 @@ import MainTools
 import cPickle
 import shutil
 
+#paths:
+PRJDATA = "/ProjectData/"
+PRJDATA_MTRX_TXT = PRJDATA+"Matrix.txt"
+SETT_PICKL = "Settings.pickle"
+PRJDATA_PICKL = PRJDATA+SETT_PICKL
+PRJDATA_LSA = PRJDATA+"lsa.lsi"
+PRJDATA_SIMMTRX = PRJDATA+"SimilarityMatrix"
+PRJDATA_CORPMM = PRJDATA+"corpus.mm"
+PRJDATA_MTRX_INDX = PRJDATA+"Matrix"   
 
 class PrjSettings(object):
     ''' This class is used to hold all user settings. ''' 
@@ -18,24 +27,42 @@ class PrjSettings(object):
         self.topics = "" #
         self.stopIndex = -1 # number of notes to be processed from a .csv file
         self.heading = False # first row is not a heading in .csv file
-        self.studNames = None # keeps student names
+        self.studNames = None # keeps the same student names order as similarity matrix in txt file
         self.columns = [] # 1st element is student name column, 2nd element is student note column
         self.avg_val = None # a list of average values of student interactions
         self.edges = {} # Set up after matrix have been processed for node graph
         self.commun = {} # Holds sub-communities of collection of students
         self.DataEdgDistGraph = None # data for Edge Distribution Graph 
+	self.WeekCount = 1
+	self.periodic_avg_val = {}
         
         # For creating/storing expert corpus related dependencies
         self.name_of_all_docs = []
         self.corpus_batch_name = ""
         
-        
+    def MergeWithPrevPeriods(self):#,studNames, avg_val):
+	#self.studNames=studNames
+	#self.avg_val=avg_val
+	
+	if self.periodic_avg_val == {}:
+	    for name in self.studNames:
+		self.periodic_avg_val[name]=[self.avg_val[self.studNames.index(name)]]
+	else:
+	    print self.studNames, len(self.studNames), len(self.periodic_avg_val)
+	    for name in self.periodic_avg_val:
+		self.periodic_avg_val[name].append(self.avg_val[self.studNames.index(name)])
+	    for name in self.studNames:
+		if name not in self.periodic_avg_val:
+		    self.periodic_avg_val[name] = [0]*(self.WeekCount-1)+[self.avg_val[self.studNames.index(name)]]
+	   
+	
+    
     def PickleMeAsStudents(self, path = None):
         ''' Pickle all information for students project into its directory. '''
         
         if path == None:
-            path = self.name + "/ProjectData/"
-        file = open(path + "Settings.pickle", "wb")
+            path = self.name + PRJDATA
+        file = open(path + SETT_PICKL, "wb")
         cPickle.dump(self, file, protocol = -1)        
         file.close()
         
@@ -43,15 +70,16 @@ class PrjSettings(object):
     def PickleMeAsExpCorp(self, dir_name):
         ''' Pickle all information for expert corpus project into directory dir_name. '''
         
-        file = open(dir_name + "/Settings.pickle", "wb")
+        file = open(dir_name + "/" + SETT_PICKL, "wb")
         cPickle.dump(self, file, protocol = -1)        
         file.close()
         
         
-    def UnPickleMe(self, file): 
+    def UnPickleMe(self, file_name=None): 
         ''' Return previously pickled class object with all saved project information. '''    
-                                           
-        return cPickle.load( open(file, "rb") )
+        if file_name == None:
+	    file_name = self.name + PRJDATA + SETT_PICKL
+        return cPickle.load( open(file_name, "rb") )
     
         
     def ClearStudNames(self):
@@ -61,13 +89,16 @@ class PrjSettings(object):
         for path in self.studNames:
             name = path[:-4].split("/")[-1]
             newNames.append(str(name))
-        self.studNames = newNames       
+        self.studNames = newNames    
+
+    def IncrementWeekCount(self):
+	self.WeekCount+=1
+	
+
+    def getCurWeekStr(self):
+	return "Week"+str(self.WeekCount)
     
-    
-''' Global variable used across multiple classes to retrieve and store students' data '''  
-global Settings 
-Settings = PrjSettings() 
-''' =================================================================================='''
+'''=================================================================================='''
 
 class StartWin ( wx.Panel ):
     ''' Welcome window that allows user to create new project or select existing project. '''
@@ -173,7 +204,7 @@ class StartWin ( wx.Panel ):
 
         
 
-
+'''
 class CreateExpertCorpus ( wx.Panel ):
     
     # Folder name where all expert corpuses are located
@@ -322,7 +353,7 @@ class CreateExpertCorpus ( wx.Panel ):
         path_to_source_files = self.m_listBox2.GetValue()        
         expert_corp_name = path_to_source_files.split("/")[-1]
         path_to_destination_save = ExpCorpusFolder + "/" + expert_corp_name
-        
+	
         # Check if expert corpus folder exists
         if not os.path.exists(path_to_destination_save):
             os.mkdir(ExpCorpusFolder + "/" + expert_corp_name)
@@ -338,7 +369,7 @@ class CreateExpertCorpus ( wx.Panel ):
         self.FillExpCorpToList() 
         
     def OnListCorpFiles(self, event):
-        ''' FIX !!!!!!!!!!!!!!!!!! '''
+        #FIX !!!!!!!!!!!!!!!!!!
         self.m_listBox1.Clear()        
         position = self.ExpCorpusList.GetSelection()
         corpus_name = self.ExpCorpusList.GetItems()[position]
@@ -370,7 +401,7 @@ class CreateExpertCorpus ( wx.Panel ):
                                
     
     def OnBack(self, event):        
-        ''' Go back to previous window (Welcome). '''
+        #Go back to previous window (Welcome). 
         
         self.Parent.Destroy()
         self.Destroy()        
@@ -378,7 +409,7 @@ class CreateExpertCorpus ( wx.Panel ):
 	newFrame.SetSize((400,400))
         StartWin(newFrame)
         newFrame.Show()
-        
+'''        
 
 class SelectPrjWin ( wx.Panel ):
     ''' Application window to select existing projects. '''
@@ -561,11 +592,11 @@ class SelectPrjWin ( wx.Panel ):
         
         position = self.ListOfProjects.GetSelection()        
         projectName = self.ListOfProjects.GetItems()[position]        
-        pathToSet = projectName + "/ProjectData/Settings.pickle"
+        pathToSet = projectName + PRJDATA+"Settings.pickle"
         Settings = PrjSettings().UnPickleMe(pathToSet)
                 
         self.m_staticText9.SetLabel(Settings.name)
-        self.m_staticText91.SetLabel(str(len(Settings.studNames)))
+        self.m_staticText91.SetLabel("  "+str(len(Settings.studNames)))
         self.m_textCtrl17.SetLabel(Settings.info)
         
     
@@ -591,18 +622,18 @@ class SelectPrjWin ( wx.Panel ):
         position = self.ListOfProjects.GetSelection()
         
         projectName = self.ListOfProjects.GetItems()[position]
-        pathTo = projectName +"/ProjectData/Matrix.txt"        
-        pathToSet = projectName + "/ProjectData/Settings.pickle"
+        pathTo = projectName + PRJDATA_MTRX_TXT
+        pathToSet = projectName + PRJDATA_PICKL
         Settings = PrjSettings().UnPickleMe(pathToSet)        
         
         frameWithTabs = GraphTools.NoteBookTabs(title = "Project: " + Settings.name)
         graph = GraphTools.GroupNetworkGraph(frameWithTabs.panel, pathTo, Settings)
-        graph2 = GraphTools.StudentInteractionDetailsPanel(frameWithTabs.panel, pathTo, Settings)
+        graph2 = GraphTools.StudentInteractionDetailsPanel(frameWithTabs.panel, pathTo, Settings, updateWeek=False)
         frameWithTabs.AddTab(graph2)
         frameWithTabs.AddTab(graph)
         frameWithTabs.Show()
 
-    
+  
 class MyFileDropTarget(wx.FileDropTarget):
     ''' Create on drop object inside application window to allow dropping .csv files to be processed. '''
     
@@ -615,9 +646,9 @@ class MyFileDropTarget(wx.FileDropTarget):
         ''' Handle event of dropping file onto target. '''
         
         for file in filenames:            
-            Settings.path = file
+            #Settings.path = file #not global anymore, needs to change
             self.parent.m_listBox2.SetLabel(file)           
-            
+           
             
 class NewProjectWin ( wx.Panel ):
     ''' Window for creating new project. '''
@@ -627,7 +658,7 @@ class NewProjectWin ( wx.Panel ):
         
         wx.Panel.__init__  ( self, parent, id = wx.ID_ANY, pos = wx.DefaultPosition, size = wx.Size( 415,462 ), style = wx.TAB_TRAVERSAL )
         parent.Center()
-        
+        self.Settings = PrjSettings()
         bSizer19 = wx.BoxSizer( wx.HORIZONTAL )        
         bSizer23 = wx.BoxSizer( wx.VERTICAL )        
         bSizer25 = wx.BoxSizer( wx.HORIZONTAL)        
@@ -789,17 +820,13 @@ class NewProjectWin ( wx.Panel ):
            "Python (*.py)|*.py|" \
            "All files (*.*)|*.*"
 
-        dialog_win = wx.FileDialog(
-            self, message="Choose a .csv file",                         
-            wildcard=wildcard,
-            style=wx.OPEN
-            )
+        dialog_win = wx.FileDialog(self, message="Choose a .csv file",                         
+			            wildcard=wildcard, style=wx.OPEN)
+
         if dialog_win.ShowModal():
             path = dialog_win.GetPath()  
-	    print "herererer", path          
             self.dropTarget.parent.m_listBox2.SetLabel(path)
-            Settings.path = path           
-            
+ 	    self.Settings.path = path
         
         
         #dialog_win.Destroy()
@@ -808,11 +835,11 @@ class NewProjectWin ( wx.Panel ):
         
     
     def GetProjectInfo(self):     
-        ''' Return project name and settings. '''
+        ''' Return project name and info. '''
         	
 	projectName = self.stat_name.GetValue()		
-        Settings = self.stat_info.GetValue()
-        return  projectName, Settings
+        projectInfo = self.stat_info.GetValue()
+        return  projectName, projectInfo
     
         
     def OnNext(self):        
@@ -820,18 +847,19 @@ class NewProjectWin ( wx.Panel ):
         
         # Store inputs        
         name, info = self.GetProjectInfo()
-        Settings.name = name
-        Settings.info = info
+        self.Settings.name = name
+        self.Settings.info = info
 	
         # Make project directory
-        if not os.path.exists(Settings.name):
-            os.mkdir(Settings.name)
-            os.mkdir(Settings.name + "/ProjectData")
+        if not os.path.exists(self.Settings.name):
+            os.mkdir(self.Settings.name)
+            os.mkdir(self.Settings.name + PRJDATA)
+	    os.mkdir(self.Settings.name + "/" + self.Settings.getCurWeekStr())
             return True
-        else:
+        else:	
             return False
              
-    
+
     def OnGoBack(self, event):
         ''' Go to previous window. '''
         
@@ -848,102 +876,111 @@ class NewProjectWin ( wx.Panel ):
         ''' Process new project information and open a project window. '''
         
         if self.OnNext():
-            name = self.stud_namesCol.GetValue()
-            notes = self.stud_notesCol.GetValue()
-            topics = self.numTopics.GetValue()
-            numNotes = self.st_numNotes.GetValue()
-            heading = self.cb_heading.IsChecked()        
-            
-            Settings.columns.append(int(name))
-            Settings.columns.append(int(notes))
-            Settings.numtopics = int(topics)
-            Settings.stopIndex = int(numNotes)
-            Settings.heading = heading
-            
-            newWindow = LsaWin()
+	    self.AssignAndSaveSettings()
+            newWindow = LsaWin(self.Settings.name+PRJDATA+SETT_PICKL)
 	    self.Parent.Destroy()
 	    self.Destroy()
- 	    '''            
-            try:		
-                newWindow = LsaWin()
-                #newWindow.Show(True)
-                self.Parent.Destroy()
-                self.Destroy()
-            except:
-                # throw warning window here
-                # Delete created working directory
-                shutil.rmtree(Settings.name)
-                print "Given .csv file does not exist"
-            '''
-        else:
-            print "Project with the given name already exists"
+
+        else:            
+	    out = wx.MessageBox("Project name already exists. Do you want to update the existing project with another period?", "Warning",  wx.YES_NO)
+	    
+	    if out==2: # 2- YES, 8 - NO
+		name, info = self.GetProjectInfo()
+		pathToCSV = self.Settings.path	    
+		self.Settings = PrjSettings().UnPickleMe(name+PRJDATA+SETT_PICKL)	    
+		self.Settings.path = pathToCSV #overwrite old path with the path to a new csv
+		self.createNextWeekFolder()
+		self.AssignAndSaveSettings()
+	    
+		newWindow = LsaWin(self.Settings.name+PRJDATA+SETT_PICKL)
+		self.Parent.Destroy()
+		self.Destroy()
+
+
+    def createNextWeekFolder(self):
+	self.Settings.IncrementWeekCount()
+	self.Settings.PickleMeAsStudents()
+	os.mkdir(self.Settings.name + "/" +self.Settings.getCurWeekStr())
+        
+    def AssignAndSaveSettings(self):
+        name = self.stud_namesCol.GetValue()
+        notes = self.stud_notesCol.GetValue()
+        topics = self.numTopics.GetValue()
+        numNotes = self.st_numNotes.GetValue()
+        heading = self.cb_heading.IsChecked()        
             
-        #pickle here?         
+        self.Settings.columns.append(int(name))
+        self.Settings.columns.append(int(notes))
+        self.Settings.numtopics = int(topics)
+        self.Settings.stopIndex = int(numNotes)
+        self.Settings.heading = heading        
+	self.Settings.PickleMeAsStudents()	
         
 class LsaWin():
     ''' Main project processing window that calls all graphs and project related analytics. '''
     
-    def __init__(self):
-        
-        self.ExtractStudNotes()
+    def __init__(self, toSettings):
+	self.Settings = PrjSettings().UnPickleMe(toSettings)        
+        self.ExtractPeriodicalStudNotes()
         CorDic = self.CreateCorpusDict()
         self.CreateLSA(CorDic.getCorpus(), CorDic.getDict())   
-        self.SimilarityAnalysis()
-        self.DisplayGraphs()    
-         
+        self.SimilarityAnalysis()	
+        self.DisplayGraphs()          
         
-    def ExtractStudNotes(self):   
-        ''' Extract each student note in .csv file into a separate .txt file. If a student has more
-            than one note, append it to already created file. '''
+    def ExtractPeriodicalStudNotes(self):   
+        ''' Extract each student note in .csv file into a separate .txt file for a given peiod in weeks. 
+		If a student has more than one note, append it to already created file. '''
         
-        pathTocsv = Settings.path        
-        studNameCol = Settings.columns[0]
-        studNoteCol = Settings.columns[1]        
-        prjFolder = Settings.name  
-        
+        pathTocsv = self.Settings.path        
+        studNameCol = self.Settings.columns[0]
+        studNoteCol = self.Settings.columns[1]        
+        prjFolder = self.Settings.name
+
+        saveForThisWeek = prjFolder+"/"+self.Settings.getCurWeekStr()
         preprocess = MainTools.CorpusUtils()
         preprocess.extractCSVtoTXTbyStudent(pathTocsv, studNameCol, studNoteCol, 
-                                            prjFolder, stopIndex = Settings.stopIndex,
-                                            heading = Settings.heading)
-        
+                                            saveTo = saveForThisWeek, stopIndex = self.Settings.stopIndex,
+                                            heading = self.Settings.heading)
+        saveForWholeProj = prjFolder
+        preprocess.extractCSVtoTXTbyStudent(pathTocsv, studNameCol, studNoteCol, 
+                                            saveTo = saveForWholeProj, stopIndex = self.Settings.stopIndex,
+                                            heading = self.Settings.heading)
             
     def CreateCorpusDict(self):
         ''' Create corpus and dictionary out of students' extracted notes inside project folder. '''
          
-        corpus = MainTools.ExpCorpCreator(folder = Settings.name)        
+        corpus = MainTools.ExpCorpCreator(folder = self.Settings.name)        
         
-        Settings.studNames = corpus.file_paths
-        Settings.ClearStudNames()
-        Settings.PickleMeAsStudents()
+        self.Settings.studNames = corpus.file_paths
+        self.Settings.ClearStudNames()
+        self.Settings.PickleMeAsStudents()	
         
-        pathTo = Settings.name+"/ProjectData/"  
+        pathTo = self.Settings.name + PRJDATA  
         corpus.save(pathTo + "/corpus", pathTo + "/dictionary")
         return corpus
-    
         
     def CreateLSA(self, corpus, dic):
         ''' Create and save LSA model in project folder/ProjectData out of gensim instance of 
             corpus and dictionary dic. '''
          
-        lsa = MainTools.CreatorLSA(corpus, dic, topics = Settings.numtopics)
-        lsa.saveModel(Settings.name + "/ProjectData/"+"lsa.lsi")        
-        
+        lsa = MainTools.CreatorLSA(corpus, dic, topics = self.Settings.numtopics)
+        lsa.saveModel(self.Settings.name + PRJDATA_LSA)
             
     def SimilarityAnalysis(self):  
         ''' Perform similarity analysis on lsi corpus of student texts and save result into
             .txt format matrix. '''
         
-        corp = MainTools.CorpusUtils().load_corp(Settings.name + "/ProjectData/" + "corpus.mm")   
+        corp = MainTools.CorpusUtils().load_corp(self.Settings.name + PRJDATA_CORPMM)   
         model = MainTools.CreatorLSA()
-        model.loadModel(Settings.name + "/ProjectData/lsa.lsi")
+        model.loadModel(self.Settings.name + PRJDATA_LSA)
         
         indexing = MainTools.SimUtils()
         indexing.MatrixSim(model.lsa, corp)        
-        indexing.SaveIndex(Settings.name + "/ProjectData/SimilarityMatrix")        
-        indexing.LoadIndex(Settings.name + "/ProjectData/SimilarityMatrix")      
+        indexing.SaveIndex(self.Settings.name + PRJDATA_SIMMTRX)        
+        indexing.LoadIndex(self.Settings.name + PRJDATA_SIMMTRX) 
         
         sims = indexing.index[model.lsa[corp]]        
-        indexing.saveSimMatrix(sims, Settings.name+"/ProjectData/Matrix")
+        indexing.saveSimMatrix(sims, self.Settings.name+PRJDATA_MTRX_INDX) 
         
         # Clear variables
         sims = None
@@ -954,13 +991,13 @@ class LsaWin():
     def DisplayGraphs(self):
         ''' Add graphs to tabs and display window to a user. '''
         
-        pathTo = Settings.name+"/ProjectData/Matrix.txt"
+        pathTo = self.Settings.name+PRJDATA_MTRX_TXT 
                 
-        frameWithTabs = GraphTools.NoteBookTabs(title = "Project: " + Settings.name) # Will hold two graph windows        
+        frameWithTabs = GraphTools.NoteBookTabs(title = "Project: " + self.Settings.name) # Will hold two graph windows        
         # Student group network graph
-        graph1 = GraphTools.GroupNetworkGraph(frameWithTabs.panel, pathTo, Settings)
+        graph1 = GraphTools.GroupNetworkGraph(frameWithTabs.panel, pathTo, self.Settings)
         # Other graphs 
-        graph2 = GraphTools.StudentInteractionDetailsPanel(frameWithTabs.panel, pathTo, Settings)
+        graph2 = GraphTools.StudentInteractionDetailsPanel(frameWithTabs.panel, pathTo, self.Settings)
         # Add graphs to each of two tabs
         frameWithTabs.AddTab(graph1)
         frameWithTabs.AddTab(graph2)        

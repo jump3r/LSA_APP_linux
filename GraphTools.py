@@ -11,7 +11,12 @@ try:
 except:
     print "Error: community.py was not found"
 import MainTools as mp
+from UserInterfaceWindows import PrjSettings
 
+PRJDATA = "/ProjectData/"
+PRJDATA_DICT = PRJDATA+"dictionary.dict"
+PRJDATA_CORPMM = PRJDATA+"corpus.mm"
+DPI=50
 
 class GroupNetworkGraph(wx.Panel):
     ''' This graph is used to display edges between group of students based on similarity matrix. '''
@@ -21,7 +26,7 @@ class GroupNetworkGraph(wx.Panel):
         wx.Panel.__init__(self, parent, id = -1)
         self.name = "Group Network Graph"
         self.parent = parent
-        self.figure = Figure((7.0, 7.0), dpi=40)
+        self.figure = Figure((7.0, 7.0), dpi=DPI-10)
         self.figure.subplots_adjust(left=0.02, bottom=0.02, right=0.98, top=0.98)
         self.axes = self.figure.add_subplot(111)     
         self.canvas = FigureCanvas(self, -1, self.figure)
@@ -214,7 +219,7 @@ class GroupNetworkGraph(wx.Panel):
     def RecordEdgesData(self):
         ''' Store connections between students and their weight. It is used in weekly interaction tab
             by clicking at each student to his or her connections with other students. '''
-        
+        self.Settings.edges={} #clean from previous week
         for student1, student2, wght in self.G.edges_iter(data = True):
             
             student1 = str(student1)
@@ -239,14 +244,14 @@ class StudentInteractionDetailsPanel(wx.Panel):
     ''' This panel holds three graphs, list of students, personal dictionaries, student's notes 
         and connections with others. '''
     
-    def __init__(self, parent, matrix, Settings):
+    def __init__(self, parent, matrix, Settings, updateWeek=True):
         ''' Parent is a frame instance being passed to this panel; matrix is a name of similarity matrix;
             Settings is a PrjSettings class that holds all settings for a particular project as well some
             of data that is used accross classes. '''
         
         ''' Auto generated code for UI using wxFormBuilder v3.1 - Beta '''
         wx.Panel.__init__  ( self, parent, id = wx.ID_ANY, pos = wx.DefaultPosition, size = wx.Size( 500,300 ), style = wx.TAB_TRAVERSAL )
-        self.StudGraph1 = StudentsWeeklyInteractionGraph(self, matrix, Settings)
+        self.StudGraph1 = StudentsWeeklyInteractionGraph(self, matrix, Settings, updateWeek=updateWeek)
         self.StudGraph2 = StudSimValueLine(self, matrix, Settings)
         self.StudGraph3 = StudAvgValueDistrBar(self, Settings)
         self.name = self.StudGraph1.name
@@ -315,7 +320,8 @@ class StudentInteractionDetailsPanel(wx.Panel):
         self.m_grid3 = wx.grid.Grid( self, wx.ID_ANY, wx.DefaultPosition, 
                                      wx.Size(-1,300), wx.VSCROLL )       
         # Grid
-        self.m_grid3.CreateGrid( len(self.Settings.studNames), 4 )        
+        #self.m_grid3.CreateGrid( len(self.Settings.studNames), 4 )
+	self.m_grid3.CreateGrid( len(self.Settings.periodic_avg_val),3+self.Settings.WeekCount )                
         self.m_grid3.EnableGridLines( True )
         self.m_grid3.EnableDragGridSize( False )
         self.m_grid3.SetMargins( 0, 0 )
@@ -329,8 +335,10 @@ class StudentInteractionDetailsPanel(wx.Panel):
         self.m_grid3.SetColLabelValue(0, "Students")
         self.m_grid3.SetColLabelValue(1, "Avg. Score")
         self.m_grid3.SetColLabelValue(2, "# Of Edges")
-        self.m_grid3.SetColLabelValue(3, "Total Score")
-        self.m_grid3.SetColLabelValue(4, "Communities")           
+        self.m_grid3.SetColLabelValue(3, "Communities")
+	
+	for week, incr in zip(range(self.Settings.WeekCount, 0, -1), range(1,self.Settings.WeekCount+1)):
+	        self.m_grid3.SetColLabelValue(3+incr, "Week "+str(week))           
         
         # Rows
         self.m_grid3.EnableDragRowSize( True )
@@ -352,16 +360,15 @@ class StudentInteractionDetailsPanel(wx.Panel):
         row = event.GetRow()
         col = event.GetCol()                
         
-        stud_name = self.m_grid3.GetCellValue(row, 0)            
-        prjpath = self.Settings.name + "/" + stud_name +".txt"        
-                
-        #Show student's notes
-        try:
-            text = open(prjpath, "r").read()
-            self.m_textctrl1.SetValue(text)                
-        except:
-            text = "Error: student's conversation could not be found"
-            self.m_textctrl1.SetValue(text)        
+        stud_name = self.m_grid3.GetCellValue(row, 0)  
+	self.StudGraph1.PlotAverageScore(student = stud_name)
+                  
+        prjpath = self.Settings.name + "/" + stud_name+ ".txt"     
+        
+	#Show student's notes
+        try: text = open(prjpath, "r").read()            
+        except: text = "Error: student's conversation could not be found"
+        self.m_textctrl1.SetValue(text)        
         
         # Fill a field with student's edges
         self.stud_edges.Clear()
@@ -369,21 +376,22 @@ class StudentInteractionDetailsPanel(wx.Panel):
             self.stud_edges.Append(edge[0] + " " + str(edge[1]["weight"]*100)[:4]+"%\n")
         
         # Fill a field with student's dict
-        corppath = self.Settings.name + "/ProjectData/corpus.mm"
-        dictpath = self.Settings.name + "/ProjectData/dictionary.dict"
+        corppath = self.Settings.name + PRJDATA_CORPMM #"/ProjectData/corpus.mm"
+        dictpath = self.Settings.name + PRJDATA_DICT #"/ProjectData/dictionary.dict"
         corpus = mp.CorpusUtils().load_corp(corppath)
         dic = mp.CorpusUtils().load_dict(dictpath)
         
         self.stud_dict.Clear()
-        for w_ind, freq in corpus[row]:            
+	original_row = self.Settings.studNames.index(stud_name)
+        for w_ind, freq in corpus[original_row]:            
             word = dic[w_ind]            
             self.stud_dict.Append(str(word) + " " + str(int(freq)))
         
         # Highlight student position in a distribution bar    
-        self.StudGraph2.DrawGraph(stud_num = row)
+        self.StudGraph2.DrawGraph(stud_num = original_row)#row)
         
         # Show student's similarity with other students
-        stud_avg_val = float(self.m_grid3.GetCellValue(row, 1)[:-1])                
+        stud_avg_val = float(self.m_grid3.GetCellValue(row, 4)[:-1])                
         self.StudGraph3.OnHighlightDistBar(stud_avg_val)
             
     def FillOutTable(self):
@@ -391,12 +399,13 @@ class StudentInteractionDetailsPanel(wx.Panel):
             and sub-community. '''
         
         column_1 = 0                
-        for name in self.Settings.studNames:
-            avg_score = str(self.Settings.avg_val[column_1]*100)[:5]
+        for name in self.Settings.periodic_avg_val:
+	    all_scores = self.Settings.periodic_avg_val[name][:] # if no [:] then it is POINTER!!!!
+	    all_scores.reverse()
+            avg_score = str(all_scores[0]*100)[:5]#[column_1]*100)[:5]
             
             # Fill student name and average similarity score
-            self.m_grid3.SetCellValue(column_1, 0, name)
-            self.m_grid3.SetCellValue(column_1, 1, avg_score + "%")
+            self.m_grid3.SetCellValue(column_1, 0, name)            
             
             # Fill # of edges
             if name in self.Settings.edges:
@@ -406,15 +415,22 @@ class StudentInteractionDetailsPanel(wx.Panel):
             else:
                 num_edges = 0
                 self.m_grid3.SetCellValue(column_1, 2, "#Error!" + name + " is missing from the record")
-            
-            # Fill students' total score
-            total_score = float(avg_score)*float(num_edges)
-            self.m_grid3.SetCellValue(column_1, 3, str(total_score))
+
+            # Fill students' total score            
+	    total_score = float(avg_score)*float(num_edges)
+	    self.m_grid3.SetCellValue(column_1, 1, str(total_score))
+
+            # Fill students' weekly score
+	    for week, incr in zip(range(self.Settings.WeekCount), range(1,self.Settings.WeekCount+1)):
+            			
+		weekly_score = str(all_scores[week]*100)[:5]	
+		
+            	self.m_grid3.SetCellValue(column_1, 3+incr, weekly_score+"%")
             
             # Fill students' belonging to sub-community
             for com_num in self.Settings.commun:
                 if name in self.Settings.commun[com_num]:
-                    self.m_grid3.SetCellValue(column_1, 4, str(com_num))
+                    self.m_grid3.SetCellValue(column_1, 3, str(com_num))
                     break
             
             column_1 += 1
@@ -429,14 +445,13 @@ class StudAvgValueDistrBar(wx.Panel):
         
         wx.Panel.__init__(self, parent = parent, id = -1)
         self.Setting = Settings
-        self.figure = Figure(dpi = 50, figsize = (2,2))
+        self.figure = Figure(dpi = DPI, figsize = (2,2))
         self.canvas = FigureCanvas(self, -1, self.figure)        
         
         self.axes = self.figure.add_subplot(111) 
         self.axes.set_title("Distribution of Average Similarity Score Per Student")
         self.axes.set_xlabel("Similarity (%)")
-        self.axes.set_ylabel("# Of Students")
-        
+        self.axes.set_ylabel("# Of Students")        
         avg_val = self.Setting.avg_val.values()
         self.SetSizers()
         
@@ -457,8 +472,7 @@ class StudAvgValueDistrBar(wx.Panel):
             
                
     def SetSizers(self):
-        ''' Panel sizers. '''
-                
+        ''' Panel sizers. '''                
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.canvas, 1, wx.EXPAND)        
         self.SetSizer(sizer)
@@ -497,7 +511,7 @@ class StudSimValueLine(wx.Panel):
         wx.Panel.__init__(self, parent = parent, id = -1)
         self.Settings = Settings
         self.matrix = matrix
-        self.figure = Figure(dpi = 50, figsize = (2,2))
+        self.figure = Figure(dpi = DPI, figsize = (2,2))
         self.canvas = FigureCanvas(self, -1, self.figure)
                 
         self.SetSizers()
@@ -562,7 +576,7 @@ class StudSimValueLine(wx.Panel):
 class StudentsWeeklyInteractionGraph(wx.Panel):
     ''' This panel holds graph of Average Similarity Score Per Student. '''
         
-    def __init__(self, parent, matrix, Settings):
+    def __init__(self, parent, matrix, Settings, updateWeek):
         ''' parent is an instance of a frame; matrix is a matrix name of similarity matrix; Settings
             is an instance of PrjSettings class. '''
         
@@ -570,36 +584,49 @@ class StudentsWeeklyInteractionGraph(wx.Panel):
         self.name = "Students Weekly Progress"
         self.Settings = Settings
         self.matrix = matrix
-        self.figure = Figure(dpi = 50, figsize = (2,2))
-        
+        self.figure = Figure(dpi = DPI, figsize = (2,2))        
         self.canvas = FigureCanvas(self, -1, self.figure)            
-                
-        self.axes = self.figure.add_subplot(111)#, axisbg = "b") 
+        
+	self.ShowAllLines=0 #1st click all shown,2nd click selected student shown      
+        self.SetSizers()        
+	self.GetAverageSimilarityForStudents()
+	if updateWeek:
+		self.Settings.MergeWithPrevPeriods()
+		self.Settings.PickleMeAsStudents()
+        self.PlotAverageScore()
+        
+        
+        
+    def PlotAverageScore(self, student=None): #plot1
+        ''' Plot average student scores. ''' 
+
+	self.axes = None
+	self.figure.clear()
+	self.axes = self.figure.add_subplot(111)#, axisbg = "b") 
         self.axes.set_title("Average Similarity Score Per Student")
         self.axes.set_ylabel("Similarity (%)")
         self.axes.set_xlabel("Weeks")
-        
-        # Switch y axes to right
+	
+	# Switch y axes to right
         for tick in self.axes.yaxis.get_major_ticks():
-            tick.label1On = False
-            tick.label2On = True            
-              
-        self.SetSizers()        
-        self.PlotAverageScore()
-        self.axes.legend(loc = 2)
-        
-        
-    def PlotAverageScore(self):
-        ''' Plot average student scores. ''' 
-        
-        y_vals = self.GetAverageSimilarityForStudents()
-        i = 0
-        for y in y_vals:
-            stud = self.Settings.studNames[i]
-            g = self.axes.plot([0,1], [0,y_vals[y]], label = stud)                        
-            i+=1 
-            
-        
+            tick.label1On, tick.label2On = False, True
+	
+	if student!=None and self.ShowAllLines==1:
+	    values = self.Settings.periodic_avg_val[student][:]	    
+	    g = self.axes.plot(range(len(values)+1), [0]+values, label = student) 
+	    
+	    self.ShowAllLines=0	    
+	else:  	    
+	    for name in self.Settings.periodic_avg_val:
+	        values = self.Settings.periodic_avg_val[name][:]
+	        g = self.axes.plot(range(len(values)+1), [0]+values, label = name) 
+
+	    self.ShowAllLines=1
+
+	self.axes.legend(loc = 2)
+	self.canvas.draw()
+	
+	
     def GetAverageSimilarityForStudents(self):
         ''' Return average student similarity score. '''
         
@@ -621,10 +648,8 @@ class StudentsWeeklyInteractionGraph(wx.Panel):
                     neg += 1
                     
             avg_val_y[index1] = sum/(len(stud1)-neg)
-        self.Settings.avg_val = avg_val_y
-        #self.Settings.PickleMeAsStudents()
-        return avg_val_y
-    
+        self.Settings.avg_val = avg_val_y	        
+            
             
     def SetSizers(self):
         ''' Panel sizers. '''
@@ -654,7 +679,7 @@ class EdgesDistrCumulGraphsFrame(wx.Frame):
         self.panel.SetSizer(bSizer)
         bSizer.Fit(self)
         
-        
+        Bar
     def DrawGraphGrid(self, freq_dic):
         ''' Draw distribution and cumulative graphs of edges. '''
         
@@ -679,7 +704,7 @@ class EdgesDistrBarGraph(wx.Panel):
         ''' parent is a frame instance. '''        
         
         wx.Panel.__init__(self, parent = parent, id = -1)        
-        self.figure = Figure(dpi = 50, figsize = (8, 4)) 
+        self.figure = Figure(dpi = DPI, figsize = (8, 4)) 
         self.canvas = FigureCanvas(self, -1, self.figure)
         self.axes = self.figure.add_subplot(111)    
         # Labels
@@ -710,7 +735,7 @@ class EdgesCumulBarGraph(wx.Panel):
         ''' parent is a fram instance. '''
         
         wx.Panel.__init__(self, parent = parent, id = -1)        
-        self.figure = Figure(dpi = 50, figsize = (8, 4)) 
+        self.figure = Figure(dpi = DPI, figsize = (8, 4)) 
         self.canvas = FigureCanvas(self, -1, self.figure)
         self.axes = self.figure.add_subplot(111)
         # Labels
