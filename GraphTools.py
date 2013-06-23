@@ -6,6 +6,8 @@ from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg
 from matplotlib.figure import Figure
 import wx.aui
 import wx.grid
+from pylab import *
+
 try:
     import community
 except:
@@ -611,16 +613,42 @@ class StudentsWeeklyInteractionGraph(wx.Panel):
         for tick in self.axes.yaxis.get_major_ticks():
             tick.label1On, tick.label2On = False, True
 	
+	#if student is picked from the grid
+	#display only his/her line
 	if student!=None and self.ShowAllLines==1:
-	    values = self.Settings.periodic_avg_val[student][:]	    
-	    g = self.axes.plot(range(len(values)+1), [0]+values, label = student) 
+	    values = self.Settings.periodic_avg_val[student][:]	    	    
+  	    x, y = range(len(values)+1), [0]+values
+
+	    g = self.axes.plot(x, y, label = student) 
 	    
-	    self.ShowAllLines=0	    
+	    # best fit line
+	    fit = polyfit(x,y,1)
+	    fit_in = poly1d(fit)
+	    self.axes.plot(x,y, fit_in(x), '--k', label = "Best fit line")
+	    self.ShowAllLines=0	
+	#display all students lines  
 	else:  	    
+	    #xf, yf= [], [] # for a best fit line
+	    yf = [0 for i in range(self.Settings.WeekCount+1)]
 	    for name in self.Settings.periodic_avg_val:
 	        values = self.Settings.periodic_avg_val[name][:]
-	        g = self.axes.plot(range(len(values)+1), [0]+values, label = name) 
 
+		x, y = range(len(values)+1), [0]+values
+		
+	        g = self.axes.plot(x, y, label = name) 
+	    # best fit line
+	        for i in range(len(y)):
+		    yf[i] +=y[i]
+	    
+	    divisor = len(self.Settings.studNames)
+	    for i in range(1,len(yf)):
+		yf[i] = yf[i]/divisor
+	    
+	    
+	    fit = polyfit(x,yf,1)
+	    fit_in = poly1d(fit)
+	    self.axes.plot(x,yf, fit_in(x), '--k', label = "Best fit line")
+	    
 	    self.ShowAllLines=1
 
 	self.axes.legend(loc = 2)
